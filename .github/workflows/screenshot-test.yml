@@ -1,0 +1,49 @@
+name: Reusable - Screenshot Test
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+jobs:
+  run-screenshots:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Run screenshot tests for ${{ inputs.module }}
+        continue-on-error: true
+        run: ./gradlew :${{ inputs.module }}:verifyAndRecordRoborazziDebug
+
+      - name: Commit and push screenshots if changed
+        id: commit_screenshots
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            # Add all changed screenshots, regardless of module
+            git add "**/screenshots/*.png"
+            git commit -m "chore: 🤖 Updated Roborazzi screenshots"
+            git push origin HEAD:${{ github.head_ref }}
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No screenshot changes detected."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR if screenshots were updated
+        if: steps.commit_screenshots.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "🤖 Roborazzi screenshots have been updated and committed to this PR. Please pull the latest changes to review the visual differences."
+            })
