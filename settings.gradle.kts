@@ -26,4 +26,7 @@ dependencyResolutionManagement {
 include(":counter:app")
 include(":counter:library")
 
+include(":list-detail:app")
+include(":list-detail:library")
+
 include(":design-system")
